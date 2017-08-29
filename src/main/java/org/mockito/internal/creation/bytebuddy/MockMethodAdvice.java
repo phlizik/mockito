@@ -39,7 +39,7 @@ public class MockMethodAdvice extends MockMethodDispatcher {
 
     private final SelfCallInfo selfCallInfo = new SelfCallInfo();
     private final MethodGraph.Compiler compiler = MethodGraph.Compiler.Default.forJavaHierarchy();
-    private final ConcurrentMap<String, MethodGraph> graphs = new ConcurrentHashMap<String, MethodGraph>();
+    private final ConcurrentMap<Class<?>, MethodGraph> graphs = new ConcurrentHashMap<Class<?>, MethodGraph>();
 
     public MockMethodAdvice(WeakConcurrentMap<Object, MockMethodInterceptor> interceptors, String identifier) {
         this.interceptors = interceptors;
@@ -122,11 +122,10 @@ public class MockMethodAdvice extends MockMethodDispatcher {
 
     @Override
     public boolean isOverridden(Object instance, Method origin) {
-        String id = instance.getClass().getName() + origin.toString();
-        MethodGraph methodGraph = graphs.get(id);
+        MethodGraph methodGraph = graphs.get(instance.getClass());
         if (methodGraph == null) {
             methodGraph = compiler.compile(new TypeDescription.ForLoadedType(instance.getClass()));
-            graphs.put(id, methodGraph);
+            graphs.put(instance.getClass(), methodGraph);
         }
         MethodGraph.Node node = methodGraph.locate(new MethodDescription.ForLoadedMethod(origin).asSignatureToken());
         return node.getSort().isResolved() && !node.getRepresentative().represents(origin);

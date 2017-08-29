@@ -28,6 +28,8 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public class MockMethodAdvice extends MockMethodDispatcher {
 
@@ -37,6 +39,7 @@ public class MockMethodAdvice extends MockMethodDispatcher {
 
     private final SelfCallInfo selfCallInfo = new SelfCallInfo();
     private final MethodGraph.Compiler compiler = MethodGraph.Compiler.Default.forJavaHierarchy();
+    private final ConcurrentMap<String, Boolean> overrides = new ConcurrentHashMap<String, Boolean>();
 
     public MockMethodAdvice(WeakConcurrentMap<Object, MockMethodInterceptor> interceptors, String identifier) {
         this.interceptors = interceptors;
@@ -119,10 +122,16 @@ public class MockMethodAdvice extends MockMethodDispatcher {
 
     @Override
     public boolean isOverridden(Object instance, Method origin) {
-        MethodGraph.Node node = compiler
-            .compile(new TypeDescription.ForLoadedType(instance.getClass()))
-            .locate(new MethodDescription.ForLoadedMethod(origin).asSignatureToken());
-        return node.getSort().isResolved() && !node.getRepresentative().represents(origin);
+        String id = instance.getClass().getName() + origin.toString();
+        Boolean result = overrides.get(id);
+        if (result == null) {
+            MethodGraph.Node node = compiler
+                .compile(new TypeDescription.ForLoadedType(instance.getClass()))
+                .locate(new MethodDescription.ForLoadedMethod(origin).asSignatureToken());
+            result = node.getSort().isResolved() && !node.getRepresentative().represents(origin);
+            overrides.put(id, result);
+        }
+        return result;
     }
 
     private static class SuperMethodCall implements InterceptedInvocation.SuperMethod {
